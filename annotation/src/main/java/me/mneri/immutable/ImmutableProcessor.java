@@ -58,7 +58,7 @@ public class ImmutableProcessor extends AbstractProcessor {
 
     private void process(TypeElement type) {
         if (!isDirectSubTypeOf(type, Object.class) || !isAnnotatedWith(getSuperType(type), Immutable.class)) {
-            printError(String.format("Class %s should be java.lang.Object direct subtype.", type.getQualifiedName()));
+            printError(String.format("Class %s's super type should be @Immutable or java.lang.Object.", type.getQualifiedName()));
         }
 
         for (Element element : type.getEnclosedElements()) {

@@ -40,10 +40,10 @@ public class ImmutableProcessor extends AbstractProcessor {
     }
 
     private boolean isDirectSubTypeOf(TypeElement type, Class<?> clazz) {
-        return getSuperType(type).getQualifiedName().toString().equals(clazz.getCanonicalName());
+        return getSuperType(type).getQualifiedName().contentEquals(clazz.getCanonicalName());
     }
 
-    private boolean isEffectivelyImmutable(VariableElement variable) {
+    private boolean isEffectivelyImmutable(TypeElement type) {
         //@formatter:off
         return Arrays.asList(
                 BigDecimal.class.getCanonicalName(),
@@ -56,7 +56,7 @@ public class ImmutableProcessor extends AbstractProcessor {
                 Long      .class.getCanonicalName(),
                 Short     .class.getCanonicalName(),
                 String    .class.getCanonicalName()
-        ).contains(variable.asType().toString());
+        ).contains(type.getQualifiedName().toString());
         //@formatter:on
     }
 
@@ -66,7 +66,7 @@ public class ImmutableProcessor extends AbstractProcessor {
 
     private boolean isImmutable(VariableElement variable) {
         TypeElement type = (TypeElement) getTypeUtils().asElement(variable.asType());
-        return isAnnotatedWith(type, Immutable.class) || isEffectivelyImmutable(variable);
+        return isAnnotatedWith(type, Immutable.class) || isEffectivelyImmutable(type);
     }
 
     private boolean isPrimitive(VariableElement variable) {

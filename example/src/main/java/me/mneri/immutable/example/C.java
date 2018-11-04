@@ -3,5 +3,5 @@ package me.mneri.immutable.example;
 import me.mneri.immutable.Immutable;
 
 @Immutable
-public class C {
+public final class C {
 }

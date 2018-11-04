@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 public class ImmutableProcessor extends AbstractProcessor {
-    private List<String> getEffectivelyImmutableClassNames() {
+    private List<String> getStronglyImmutableStandardClassNames() {
         //@formatter:off
         return Arrays.asList(
                 BigDecimal.class.getCanonicalName(),
@@ -27,6 +27,7 @@ public class ImmutableProcessor extends AbstractProcessor {
                 Byte      .class.getCanonicalName(),
                 Character .class.getCanonicalName(),
                 Double    .class.getCanonicalName(),
+                Float     .class.getCanonicalName(),
                 Integer   .class.getCanonicalName(),
                 Long      .class.getCanonicalName(),
                 Short     .class.getCanonicalName(),
@@ -49,33 +50,47 @@ public class ImmutableProcessor extends AbstractProcessor {
         return SourceVersion.RELEASE_8;
     }
 
+    private TypeElement getType(VariableElement variable) {
+        return (TypeElement) getTypeUtils().asElement(variable.asType());
+    }
+
     private Types getTypeUtils() {
         return processingEnv.getTypeUtils();
+    }
+
+    private List<String> getWeaklyImmutableStandardClassNames() {
+        //@formatter:off
+        return Arrays.asList(
+                Object.class.getCanonicalName(),
+                Number.class.getCanonicalName()
+        );
+        //@formatter:on
     }
 
     private boolean isAnnotatedWith(TypeElement element, Class<? extends Annotation> clazz) {
         return element.getAnnotation(clazz) != null;
     }
 
-    private boolean isDirectSubTypeOf(TypeElement type, Class<?> clazz) {
-        return getSuperType(type).getQualifiedName().contentEquals(clazz.getCanonicalName());
-    }
-
-    private boolean isEffectivelyImmutable(TypeElement type) {
-        return getEffectivelyImmutableClassNames().contains(type.getQualifiedName().toString());
-    }
-
     private boolean isFinal(Element element) {
         return element.getModifiers().contains(Modifier.FINAL);
     }
 
-    private boolean isImmutable(VariableElement variable) {
-        TypeElement type = (TypeElement) getTypeUtils().asElement(variable.asType());
-        return isAnnotatedWith(type, Immutable.class) || isEffectivelyImmutable(type);
-    }
-
     private boolean isPrimitive(VariableElement variable) {
         return variable.asType().getKind().isPrimitive();
+    }
+
+    private boolean isStronglyImmutable(TypeElement type) {
+        //@formatter:off
+        return getStronglyImmutableStandardClassNames().contains(type.getQualifiedName().toString()) ||
+               (isAnnotatedWith(type, Immutable.class) && isFinal(type));
+        //@formatter:on
+    }
+
+    private boolean isWeaklyImmutable(TypeElement type) {
+        //@formatter:off
+        return getWeaklyImmutableStandardClassNames().contains(type.getQualifiedName().toString()) ||
+               isAnnotatedWith(type, Immutable.class);
+        //@formatter:on
     }
 
     private void printError(String format, Object... params) {
@@ -93,25 +108,21 @@ public class ImmutableProcessor extends AbstractProcessor {
 
     private void processField(TypeElement container, VariableElement field) {
         if (!isFinal(field)) {
-            String format = "%s is annotated with @Immutable but field %s is not final.";
+            String format = "%s is annotated with @Immutable but field '%s' is not final.";
             printError(format, container.getQualifiedName(), field.getSimpleName());
         }
 
-        if (!isPrimitive(field) && !isImmutable(field)) {
-            //@formatter:off
-            String format = "%s is annotated with @Immutable but field %s is not primitive, @Immutable or " +
-                            "effectively immutable.";
-            //@formatter:on
+        if (!isPrimitive(field) && !isStronglyImmutable(getType(field))) {
+            String format = "%s is annotated with @Immutable but field '%s' is not primitive or strongly immutable.";
             printError(format, container.getQualifiedName(), field.getSimpleName());
         }
     }
 
     private void processType(TypeElement type) {
-        if (!isDirectSubTypeOf(type, Object.class) && !isAnnotatedWith(getSuperType(type), Immutable.class)) {
-            //@formatter:off
-            String format = "%s is annotated with @Immutable but its super class is nor @Immutable itself nor " +
-                            "java.lang.Object.";
-            //@formatter:on
+        TypeElement superType = getSuperType(type);
+
+        if (!isWeaklyImmutable(superType)) {
+            String format = "%s is annotated with @Immutable but its super class is not weakly immutable.";
             printError(format, type.getQualifiedName(), type.getQualifiedName());
         }
 

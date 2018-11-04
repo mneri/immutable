@@ -14,9 +14,27 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 public class ImmutableProcessor extends AbstractProcessor {
+    private List<String> getEffectivelyImmutableClassNames() {
+        //@formatter:off
+        return Arrays.asList(
+                BigDecimal.class.getCanonicalName(),
+                BigInteger.class.getCanonicalName(),
+                Boolean   .class.getCanonicalName(),
+                Byte      .class.getCanonicalName(),
+                Character .class.getCanonicalName(),
+                Double    .class.getCanonicalName(),
+                Integer   .class.getCanonicalName(),
+                Long      .class.getCanonicalName(),
+                Short     .class.getCanonicalName(),
+                String    .class.getCanonicalName()
+        );
+        //@formatter:on
+    }
+
     private TypeElement getSuperType(TypeElement type) {
         return (TypeElement) getTypeUtils().asElement(type.getSuperclass());
     }
@@ -44,20 +62,7 @@ public class ImmutableProcessor extends AbstractProcessor {
     }
 
     private boolean isEffectivelyImmutable(TypeElement type) {
-        //@formatter:off
-        return Arrays.asList(
-                BigDecimal.class.getCanonicalName(),
-                BigInteger.class.getCanonicalName(),
-                Boolean   .class.getCanonicalName(),
-                Byte      .class.getCanonicalName(),
-                Character .class.getCanonicalName(),
-                Double    .class.getCanonicalName(),
-                Integer   .class.getCanonicalName(),
-                Long      .class.getCanonicalName(),
-                Short     .class.getCanonicalName(),
-                String    .class.getCanonicalName()
-        ).contains(type.getQualifiedName().toString());
-        //@formatter:on
+        return getEffectivelyImmutableClassNames().contains(type.getQualifiedName().toString());
     }
 
     private boolean isFinal(Element element) {
@@ -80,19 +85,34 @@ public class ImmutableProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         for (Element element : roundEnv.getElementsAnnotatedWith(Immutable.class)) {
-            if (!(element instanceof TypeElement)) {
-                continue;
-            }
-
-            process((TypeElement) element);
+            processType((TypeElement) element);
         }
 
         return true;
     }
 
-    private void process(TypeElement type) {
+    private void processField(TypeElement container, VariableElement field) {
+        if (!isFinal(field)) {
+            String format = "%s is annotated with @Immutable but field %s is not final.";
+            printError(String.format(format, container.getQualifiedName(), field.getSimpleName()));
+        }
+
+        if (!isPrimitive(field) && !isImmutable(field)) {
+            //@formatter:off
+            String format = "%s is annotated with @Immutable but field %s is not primitive, @Immutable or " +
+                            "effectively immutable.";
+            //@formatter:on
+            printError(String.format(format, container.getQualifiedName(), field.getSimpleName()));
+        }
+    }
+
+    private void processType(TypeElement type) {
         if (!isDirectSubTypeOf(type, Object.class) && !isAnnotatedWith(getSuperType(type), Immutable.class)) {
-            printError(String.format("Class %s's super type should be @Immutable or java.lang.Object.", type.getQualifiedName()));
+            //@formatter:off
+            String format = "%s is annotated with @Immutable but its super class is nor @Immutable itself nor " +
+                            "java.lang.Object.";
+            //@formatter:on
+            printError(String.format(format, type.getQualifiedName(), type.getQualifiedName()));
         }
 
         for (Element element : type.getEnclosedElements()) {
@@ -100,17 +120,7 @@ public class ImmutableProcessor extends AbstractProcessor {
                 continue;
             }
 
-            process((VariableElement) element);
-        }
-    }
-
-    private void process(VariableElement variable) {
-        if (!isFinal(variable)) {
-            printError(String.format("Field %s should be final.", variable.getSimpleName()));
-        }
-
-        if (!isPrimitive(variable) && !isImmutable(variable)) {
-            printError(String.format("%s should be primitive, immutable or effectively immutable.", variable.getSimpleName()));
+            processField(type, (VariableElement) element);
         }
     }
 }

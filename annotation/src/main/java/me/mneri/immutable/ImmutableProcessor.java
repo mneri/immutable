@@ -78,8 +78,8 @@ public class ImmutableProcessor extends AbstractProcessor {
         return variable.asType().getKind().isPrimitive();
     }
 
-    private void printError(String message) {
-        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message);
+    private void printError(String format, Object... params) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, String.format(format, params));
     }
 
     @Override
@@ -94,7 +94,7 @@ public class ImmutableProcessor extends AbstractProcessor {
     private void processField(TypeElement container, VariableElement field) {
         if (!isFinal(field)) {
             String format = "%s is annotated with @Immutable but field %s is not final.";
-            printError(String.format(format, container.getQualifiedName(), field.getSimpleName()));
+            printError(format, container.getQualifiedName(), field.getSimpleName());
         }
 
         if (!isPrimitive(field) && !isImmutable(field)) {
@@ -102,7 +102,7 @@ public class ImmutableProcessor extends AbstractProcessor {
             String format = "%s is annotated with @Immutable but field %s is not primitive, @Immutable or " +
                             "effectively immutable.";
             //@formatter:on
-            printError(String.format(format, container.getQualifiedName(), field.getSimpleName()));
+            printError(format, container.getQualifiedName(), field.getSimpleName());
         }
     }
 
@@ -112,7 +112,7 @@ public class ImmutableProcessor extends AbstractProcessor {
             String format = "%s is annotated with @Immutable but its super class is nor @Immutable itself nor " +
                             "java.lang.Object.";
             //@formatter:on
-            printError(String.format(format, type.getQualifiedName(), type.getQualifiedName()));
+            printError(format, type.getQualifiedName(), type.getQualifiedName());
         }
 
         for (Element element : type.getEnclosedElements()) {
